@@ -1,7 +1,7 @@
 #!/usr/bin/python
 #
 # send_nsca.py: A replacement for the C-based send_nsca, able
-# to be run in pure-python. Depends on PyCrypto and ctypes.
+# to be run in pure-python. Depends on PyCrypto and Python >= 2.6.
 #
 # Heavily inspired by (and protocol-compatible with) the original send_nsca,
 # written by Ethan Galstad <nagios@nagios.org>, which was available under
@@ -196,6 +196,7 @@ class CRC32(object):
         self.regenerate_table()
 
     def regenerate_table(self):
+        # magic constant from nsca source
         poly = 0xEDB88320
         for i in xrange(256):
             crc = i
@@ -203,7 +204,7 @@ class CRC32(object):
                 if (crc & 1):
                     crc = (crc>>1)^poly
                 else:
-                    crc >>= 1
+                    crc = (crc>>1)
             self.table[i] = crc
 
     def calculate(self, buf):
