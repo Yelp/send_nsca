@@ -17,7 +17,7 @@
 # Written by James Brown <jbrown@yelp.com>
 #
 # This software is available under the terms of the Lesser GNU Public
-# License.
+# License, Version 2.1
 
 import array
 import functools
@@ -35,6 +35,8 @@ import Crypto.Cipher.DES3
 import Crypto.Cipher.CAST
 import Crypto.Util.randpool
 
+from . import nagios
+
 MAX_PASSWORD_LENGTH = 512
 MAX_HOSTNAME_LENGTH = 64
 MAX_DESCRIPTION_LENGTH = 128
@@ -43,18 +45,6 @@ MAX_PLUGINOUTPUT_LENGTH = 512
 _TRANSMITTED_IV_SIZE = 128
 
 PACKET_VERSION = 3
-
-STATE_OK=0
-STATE_WARNING=1
-STATE_CRITICAL=2
-STATE_UNKNOWN=3
-
-States = {
-    STATE_OK: 'OK',
-    STATE_WARNING: 'WARNING',
-    STATE_CRITICAL: 'CRITICAL',
-    STATE_UNKNOWN: 'UNKNOWN',
-}
 
 log = logging.getLogger("send_nsca")
 
@@ -323,7 +313,7 @@ class NscaSender(object):
                     raise ConfigParseError(config_path, line_no, "Could not parse value '%s' for key '%s'" % (value, key))
 
     def send_service(self, host, service, state, description):
-        if state not in States.keys():
+        if state not in nagios.States.keys():
             raise ValueError("state %r should be one of {%s}" % (state, ','.join(States.keys())))
         self.connect()
         for conn, iv, timestamp in self._conns:
@@ -402,7 +392,7 @@ def nsca_ok(host_name, service_name, text_output, remote_host, **kwargs):
 
         All other arguments are passed to the NscaSender constructor
     """
-    return send_nsca(status=STATE_OK, host_name=host_name, service_name=service_name, text_output=text_output, remote_host=remote_host, **kwargs)
+    return send_nsca(status=nagios.STATE_OK, host_name=host_name, service_name=service_name, text_output=text_output, remote_host=remote_host, **kwargs)
 
 def nsca_warning(host_name, service_name, text_output, remote_host, **kwargs):
     """Wrapper for the send_nsca() function to easily send a WARNING
@@ -415,7 +405,7 @@ def nsca_warning(host_name, service_name, text_output, remote_host, **kwargs):
 
         All other arguments are passed to the NscaSender constructor
     """
-    return send_nsca(status=STATE_WARNING, host_name=host_name, service_name=service_name, text_output=text_output, remote_host=remote_host, **kwargs)
+    return send_nsca(status=nagios.STATE_WARNING, host_name=host_name, service_name=service_name, text_output=text_output, remote_host=remote_host, **kwargs)
 
 def nsca_critical(host_name, service_name, text_output, remote_host, **kwargs):
     """Wrapper for the send_nsca() function to easily send a CRITICAL
@@ -428,7 +418,7 @@ def nsca_critical(host_name, service_name, text_output, remote_host, **kwargs):
 
         All other arguments are passed to the NscaSender constructor
     """
-    return send_nsca(status=STATE_CRITICAL, host_name=host_name, service_name=service_name, text_output=text_output, remote_host=remote_host, **kwargs)
+    return send_nsca(status=nagios.STATE_CRITICAL, host_name=host_name, service_name=service_name, text_output=text_output, remote_host=remote_host, **kwargs)
 
 def nsca_unknown(host_name, service_name, text_output, remote_host, **kwargs):
     """Wrapper for the send_nsca() function to easily send an UNKNONW
@@ -441,7 +431,7 @@ def nsca_unknown(host_name, service_name, text_output, remote_host, **kwargs):
 
         All other arguments are passed to the NscaSender constructor
     """
-    return send_nsca(status=STATE_UNKNOWN, host_name=host_name, service_name=service_name, text_output=text_output, remote_host=remote_host, **kwargs)
+    return send_nsca(status=nagios.STATE_UNKNOWN, host_name=host_name, service_name=service_name, text_output=text_output, remote_host=remote_host, **kwargs)
 
 if __name__ == '__main__':
     import sys
