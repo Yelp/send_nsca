@@ -114,9 +114,9 @@ class CryptoCrypter(Crypter):
         else:
             key += '\0' * (self.key_size - len(self.password))
         if len(self.iv) >= self.CryptoCipher.block_size:
-            iv = self.iv[:self.CryptoCipher.block_size]
+            iv = self.iv[:iv_size]
         else:
-            iv += self.random_pool.get_bytes(self.CryptoCipher.block_size - self.iv)
+            iv += self.random_pool.get_bytes(iv_size - self.iv)
         crypter = self.CryptoCipher.new(key, self.CryptoCipher.MODE_CFB, iv)
         return crypter.encrypt(value)
 
@@ -314,7 +314,7 @@ class NscaSender(object):
 
     def send_service(self, host, service, state, description):
         if state not in nagios.States.keys():
-            raise ValueError("state %r should be one of {%s}" % (state, ','.join(States.keys())))
+            raise ValueError("state %r should be one of {%s}" % (state, ','.join(nagios.States.keys())))
         self.connect()
         for conn, iv, timestamp in self._conns:
             packet = _pack_packet(host, service, state, description, timestamp, self.CRC32)
@@ -432,8 +432,3 @@ def nsca_unknown(host_name, service_name, text_output, remote_host, **kwargs):
         All other arguments are passed to the NscaSender constructor
     """
     return send_nsca(status=nagios.STATE_UNKNOWN, host_name=host_name, service_name=service_name, text_output=text_output, remote_host=remote_host, **kwargs)
-
-if __name__ == '__main__':
-    import sys
-    logging.basicConfig(level=logging.ERROR, stream=sys.stderr)
-    nsca_warning('batch', 'test_batch', 'OH NOES', '127.0.0.1', config_path='./send_nsca.cfg')
