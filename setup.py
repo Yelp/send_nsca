@@ -6,7 +6,6 @@ except ImportError:
 setup(
     name="send_nsca",
     version="0.0.1",
-    provides=["send_nsca"],
     author="Yelp",
     author_email="yelplabs@yelp.com",
     url="http://github.com/Roguelazer/send_nsca",
@@ -20,6 +19,8 @@ setup(
         "Development Status :: 4 - Beta",
     ],
     packages=["send_nsca"],
+    provides=["send_nsca"],
+    requires=["pycrypto (>=2.0.0)"],
     long_description="""send_nsca -- a pure-python nsca sender
 
 NSCA is the remote passive acceptance daemon used with many Nagios installs. It
