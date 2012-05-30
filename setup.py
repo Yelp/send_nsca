@@ -5,7 +5,7 @@ except ImportError:
 
 setup(
     name="send_nsca",
-    version="0.0.1",
+    version="0.1.0",
     author="Yelp",
     author_email="yelplabs@yelp.com",
     url="http://github.com/Roguelazer/send_nsca",

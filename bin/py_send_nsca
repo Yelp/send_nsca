@@ -4,6 +4,7 @@ import logging
 import optparse
 import sys
 
+import send_nsca
 import send_nsca.nsca
 
 def main():
@@ -14,6 +15,7 @@ def main():
     parser.add_option("-d", "--delim", dest="delimiter", type=str, default="\t", help="Delimiter between input fields (default TAB)")
     parser.add_option("-c", "--config-file", dest="config_file", type=str, default="/etc/send_nsca.cfg", help="Path to config file (default %default)")
     parser.add_option("-v", "--verbose", dest="verbose", action="store_true", default=False, help="Be more verbose in output")
+    parser.add_option("-V", "--version", dest="version", action="store_true", default=False, help="Show version number")
     opts, args = parser.parse_args()
 
     format_str = "%(message)s"
@@ -21,6 +23,9 @@ def main():
 
     if args:
         parser.error("This program takes no un-flagged command-line options")
+    if opts.version:
+        print "py_send_nsca %s " %send_nsca.version
+        return 0
     if not opts.host_address:
         parser.error("-H is required")
     if len(opts.delimiter) > 1:
