@@ -102,7 +102,8 @@ class CryptoCrypter(Crypter):
     # rarely override this
     iv_size = None
 
-    def encrypt(self, value):
+    def __init__(self, *args):
+        super(CryptoCrypter, self).__init__(*args)
         key = self.password
         iv = self.iv
         if self.iv_size is not None:
@@ -117,8 +118,10 @@ class CryptoCrypter(Crypter):
             iv = self.iv[:iv_size]
         else:
             iv += self.random_pool.get_bytes(iv_size - self.iv)
-        crypter = self.CryptoCipher.new(key, self.CryptoCipher.MODE_CFB, iv)
-        return crypter.encrypt(value)
+        self.crypter = self.CryptoCipher.new(key, self.CryptoCipher.MODE_CFB, iv)
+
+    def encrypt(self, value):
+        return self.crypter.encrypt(value)
 
 class DESCrypter(CryptoCrypter):
     crypt_id = 2
@@ -285,6 +288,7 @@ class NscaSender(object):
         self._connected = False
         self.CRC32 = CRC32()
         self.Crypter = Crypter
+        self._cached_crypters = {}
         self.random_pool = Crypto.Util.randpool.RandomPool()
         if config_path is not None:
             self.parse_config(config_path)
@@ -292,6 +296,8 @@ class NscaSender(object):
     def parse_config(self, config_path):
         with open(config_path, 'r') as f:
             for line_no, line in enumerate(f):
+                if '=' not in line or line.lstrip().startswith('#'):
+                    continue
                 key, value = [res.strip() for res in line.split('=')]
                 try:
                     if key == 'password':
@@ -317,8 +323,10 @@ class NscaSender(object):
             raise ValueError("state %r should be one of {%s}" % (state, ','.join(map(str, nagios.States.keys()))))
         self.connect()
         for conn, iv, timestamp in self._conns:
+            if conn not in self._cached_crypters:
+                self._cached_crypters[conn] = self.Crypter(iv, self.password, self.random_pool)
+            crypter = self._cached_crypters[conn]
             packet = _pack_packet(host, service, state, description, timestamp, self.CRC32)
-            crypter = self.Crypter(iv, self.password, self.random_pool)
             packet = crypter.encrypt(packet)
             conn.sendall(packet)
 
