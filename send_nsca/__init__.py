@@ -1,7 +1,7 @@
 from .nagios import (States, STATE_OK, STATE_WARNING, STATE_CRITICAL, STATE_UNKNOWN)
 from .nsca import NscaSender
 
-version_info = (0, 1, 0)
+version_info = (0, 1, 1)
 version = ".".join(map(str, version_info))
 
 def send_nsca(status, host_name, service_name, text_output, remote_host, **kwargs):
