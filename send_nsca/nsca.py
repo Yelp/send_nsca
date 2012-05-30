@@ -314,7 +314,7 @@ class NscaSender(object):
 
     def send_service(self, host, service, state, description):
         if state not in nagios.States.keys():
-            raise ValueError("state %r should be one of {%s}" % (state, ','.join(nagios.States.keys())))
+            raise ValueError("state %r should be one of {%s}" % (state, ','.join(map(str, nagios.States.keys()))))
         self.connect()
         for conn, iv, timestamp in self._conns:
             packet = _pack_packet(host, service, state, description, timestamp, self.CRC32)

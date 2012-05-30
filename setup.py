@@ -18,6 +18,7 @@ setup(
         "Intended Audience :: Developers",
         "Development Status :: 4 - Beta",
     ],
+    scripts=["bin/py_send_nsca"],
     packages=["send_nsca"],
     provides=["send_nsca"],
     requires=["pycrypto (>=2.0.0)"],

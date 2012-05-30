@@ -1,0 +1,52 @@
+#!/usr/bin/python
+
+import logging
+import optparse
+import sys
+
+import send_nsca.nsca
+
+def main():
+    parser = optparse.OptionParser(usage="%prog -H <host_address> [args]")
+    parser.add_option("-H", "--host-address", default=None, dest="host_address", help="The IP address or hostname of the machine running NSCA")
+    parser.add_option("-p", "--port", dest="port", type=int, default=5667, help="The port on which the daemon is running (default %default)")
+    parser.add_option("-t", "--timeout", dest="timeout", type=int, default=10, help="TCP timeout (default %default), 0 for none")
+    parser.add_option("-d", "--delim", dest="delimiter", type=str, default="\t", help="Delimiter between input fields (default TAB)")
+    parser.add_option("-c", "--config-file", dest="config_file", type=str, default="/etc/send_nsca.cfg", help="Path to config file (default %default)")
+    parser.add_option("-v", "--verbose", dest="verbose", action="store_true", default=False, help="Be more verbose in output")
+    opts, args = parser.parse_args()
+
+    format_str = "%(message)s"
+    logging.basicConfig(stream=sys.stderr, level=logging.DEBUG if opts.verbose else logging.INFO, fmt=format_str)
+
+    if args:
+        parser.error("This program takes no un-flagged command-line options")
+    if not opts.host_address:
+        parser.error("-H is required")
+    if len(opts.delimiter) > 1:
+        parser.error("delimiter must be a single character")
+    if opts.timeout < 0:
+        parser.error("timeout must be nonnegative")
+    sender = send_nsca.nsca.NscaSender(remote_host=opts.host_address, config_path=opts.config_file, port=opts.port, timeout=opts.timeout)
+    for line in sys.stdin:
+        line = line.rstrip()
+        fields = line.split(opts.delimiter)
+        if len(fields) == 3:
+            # We're sending a host check
+            host, status, output = fields
+            status = int(status)
+            sender.send_host(host, status, output)
+        elif len(fields) == 4:
+            # We're sending a service check
+            host, service, status, output = fields
+            status = int(status)
+            sender.send_service(host, service, status, output)
+        else:
+            logging.error("Incorrect number of fields on line '%s'", line)
+            print >>sys.stderr, "Incorrect number of fields on input line '%s'" % line
+            return 1
+    sender.disconnect()
+    return 0
+
+if __name__ == '__main__':
+    sys.exit(main())
