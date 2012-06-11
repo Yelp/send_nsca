@@ -1,5 +1,8 @@
-from .nagios import (States, STATE_OK, STATE_WARNING, STATE_CRITICAL, STATE_UNKNOWN)
-from .nsca import NscaSender
+from .import (States, STATE_OK, STATE_WARNING, STATE_CRITICAL, STATE_UNKNOWN)
+from .nsca import NscaSender, log
+
+# make pyflakes happy
+States = States
 
 version_info = (0, 1, 1)
 version = ".".join(map(str, version_info))
@@ -34,7 +37,7 @@ def nsca_ok(host_name, service_name, text_output, remote_host, **kwargs):
 
         All other arguments are passed to the NscaSender constructor
     """
-    return send_nsca(status=nagios.STATE_OK, host_name=host_name, service_name=service_name, text_output=text_output, remote_host=remote_host, **kwargs)
+    return send_nsca(status=STATE_OK, host_name=host_name, service_name=service_name, text_output=text_output, remote_host=remote_host, **kwargs)
 
 def nsca_warning(host_name, service_name, text_output, remote_host, **kwargs):
     """Wrapper for the send_nsca() function to easily send a WARNING
@@ -47,7 +50,7 @@ def nsca_warning(host_name, service_name, text_output, remote_host, **kwargs):
 
         All other arguments are passed to the NscaSender constructor
     """
-    return send_nsca(status=nagios.STATE_WARNING, host_name=host_name, service_name=service_name, text_output=text_output, remote_host=remote_host, **kwargs)
+    return send_nsca(status=STATE_WARNING, host_name=host_name, service_name=service_name, text_output=text_output, remote_host=remote_host, **kwargs)
 
 def nsca_critical(host_name, service_name, text_output, remote_host, **kwargs):
     """Wrapper for the send_nsca() function to easily send a CRITICAL
@@ -60,7 +63,7 @@ def nsca_critical(host_name, service_name, text_output, remote_host, **kwargs):
 
         All other arguments are passed to the NscaSender constructor
     """
-    return send_nsca(status=nagios.STATE_CRITICAL, host_name=host_name, service_name=service_name, text_output=text_output, remote_host=remote_host, **kwargs)
+    return send_nsca(status=STATE_CRITICAL, host_name=host_name, service_name=service_name, text_output=text_output, remote_host=remote_host, **kwargs)
 
 def nsca_unknown(host_name, service_name, text_output, remote_host, **kwargs):
     """Wrapper for the send_nsca() function to easily send an UNKNONW
@@ -73,4 +76,4 @@ def nsca_unknown(host_name, service_name, text_output, remote_host, **kwargs):
 
         All other arguments are passed to the NscaSender constructor
     """
-    return send_nsca(status=nagios.STATE_UNKNOWN, host_name=host_name, service_name=service_name, text_output=text_output, remote_host=remote_host, **kwargs)
+    return send_nsca(status=STATE_UNKNOWN, host_name=host_name, service_name=service_name, text_output=text_output, remote_host=remote_host, **kwargs)
