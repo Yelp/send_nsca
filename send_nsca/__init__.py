@@ -4,7 +4,7 @@ from .nsca import NscaSender, log
 # make pyflakes happy
 States = States
 
-version_info = (0, 1, 1)
+version_info = (0, 1, 2)
 version = ".".join(map(str, version_info))
 
 def send_nsca(status, host_name, service_name, text_output, remote_host, **kwargs):
