@@ -8,7 +8,7 @@ from testify import TestCase, run, assert_raises, assert_equal, assert_length, s
 import send_nsca
 
 
-class TestNSCAConnectionLogic(TestCase):
+class TestConnectionLogic(TestCase):
     @setup
     def build_sender(self):
         self.sender = send_nsca.NscaSender('test_host')
@@ -69,6 +69,21 @@ class TestNSCAConnectionLogic(TestCase):
         assert_length(sockets, 2)
         mock_read_iv.assert_any_call(sockets[0])
         mock_read_iv.assert_any_call(sockets[1])
+
+    def test_disconnect_disconnects(self):
+        mock_getaddrinfo = mock.Mock(return_value=[(2, 1, 6, '', ('10.16.1.20', 5667)),])
+        mock_socket = mock.Mock()
+        mock_read_iv = mock.Mock(return_value=(1, 2))
+        with mock.patch('socket.getaddrinfo', mock_getaddrinfo):
+            with mock.patch('socket.socket', mock_socket):
+                with mock.patch.object(self.sender, '_read_init_packet', mock_read_iv):
+                    self.sender.timeout = 1
+                    self.sender.connect()
+                    assert not mock_socket.return_value.close.called
+                    self.sender.disconnect()
+        mock_socket.assert_called_once_with(2, 1, 6)
+        mock_socket.return_value.settimeout.assert_called_once_with(1)
+        mock_socket.return_value.close.assert_called_once_with()
 
 if __name__ == '__main__':
     run()
