@@ -190,13 +190,6 @@ class AES256Crypter(CryptoCrypter):
     CryptoCipher = Crypto.Cipher.AES
     key_size = 32
 
-########  CRC32 IMPLEMENTATION ########
-
-class CRC32(object):
-    """NSCA-specific CRC32 implementation"""
-    def calculate(self, buf):
-        return binascii.crc32(buf) & 0xffffffffL
-
 ########  WIRE PROTOCOL IMPLEMENTATION ########
 
 _data_packet_format = '!hxxLLh%ds%ds%dsxx' % (MAX_HOSTNAME_LENGTH, MAX_DESCRIPTION_LENGTH, MAX_PLUGINOUTPUT_LENGTH)
@@ -205,7 +198,7 @@ _init_packet_format = '!%dsL' % (_TRANSMITTED_IV_SIZE,)
 def get_random_alphanumeric_bytes(bytesz):
     return ''.join(chr(random.randrange(ord('0'), ord('Z'))) for _ in xrange(bytesz))
 
-def _pack_packet(hostname, service, state, output, timestamp, crc):
+def _pack_packet(hostname, service, state, output, timestamp):
     """This is more complicated than a call to struct.pack() because we want
     to pad our strings with random bytes, instead of with zeros."""
     requested_length = struct.calcsize(_data_packet_format)
@@ -233,7 +226,7 @@ def _pack_packet(hostname, service, state, output, timestamp, crc):
         output += get_random_alphanumeric_bytes(MAX_PLUGINOUTPUT_LENGTH - len(output))
     struct.pack_into('%ds' % (MAX_PLUGINOUTPUT_LENGTH,), packet, offset, output)
     # compute the CRC32 of what we have so far
-    crc_val = crc.calculate(packet)
+    crc_val = binascii.crc32(packet) & 0xffffffffL
     struct.pack_into('!L', packet, 4, crc_val)
     return packet.tostring()
 
@@ -269,7 +262,6 @@ class NscaSender(object):
         self.send_to_all = send_to_all
         self._conns = []
         self._connected = False
-        self.CRC32 = CRC32()
         self.Crypter = Crypter
         self._cached_crypters = {}
         self.random_pool = Crypto.Util.randpool.RandomPool()
@@ -301,15 +293,31 @@ class NscaSender(object):
                 except:
                     raise ConfigParseError(config_path, line_no, "Could not parse value '%s' for key '%s'" % (value, key))
 
-    def send_service(self, host, service, state, description):
+    def _check_alert(self, host=None, service=None, state=None, description=None):
         if state not in nagios.States.keys():
             raise ValueError("state %r should be one of {%s}" % (state, ','.join(map(str, nagios.States.keys()))))
+        if not isinstance(host, (bytes, str)):
+            raise ValueError("host %r must be a non-unicode string" % (host))
+        if len(host) > MAX_HOSTNAME_LENGTH:
+            raise ValueError("host %r too long (max length %d)" % (host, MAX_HOSTNAME_LENGTH))
+        if not isinstance(description, (bytes, str)):
+            raise ValueError("plugin output %r must be a non-unicode string" % (description))
+        if len(description) > MAX_PLUGINOUTPUT_LENGTH:
+            raise ValueError("plugin output %r too long (max length %d)" % (description, MAX_PLUGINOUTPUT_LENGTH))
+        if service is not None:
+            if not isinstance(service, (bytes, str)):
+                raise ValueError("service %r must be a non-unicode string" % (service))
+            if len(service) > MAX_DESCRIPTION_LENGTH:
+                raise ValueError("service %r too long (max length %d)" % (service, MAX_DESCRIPTION_LENGTH))
+
+    def send_service(self, host, service, state, description):
+        self._check_alert(host=host, service=service, state=state, description=description)
         self.connect()
         for conn, iv, timestamp in self._conns:
             if conn not in self._cached_crypters:
                 self._cached_crypters[conn] = self.Crypter(iv, self.password, self.random_pool)
             crypter = self._cached_crypters[conn]
-            packet = _pack_packet(host, service, state, description, timestamp, self.CRC32)
+            packet = _pack_packet(host, service, state, description, timestamp)
             packet = crypter.encrypt(packet)
             conn.sendall(packet)
 
