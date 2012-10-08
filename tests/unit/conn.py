@@ -8,7 +8,7 @@ from testify import TestCase, run, assert_raises, assert_equal, assert_length, s
 import send_nsca
 
 
-class TestNSCAUnits(TestCase):
+class TestNSCAConnectionLogic(TestCase):
     @setup
     def build_sender(self):
         self.sender = send_nsca.NscaSender('test_host')

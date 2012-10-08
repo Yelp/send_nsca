@@ -22,6 +22,7 @@
 from __future__ import with_statement
 
 import array
+import binascii
 import functools
 import math
 import logging
@@ -193,28 +194,8 @@ class AES256Crypter(CryptoCrypter):
 
 class CRC32(object):
     """NSCA-specific CRC32 implementation"""
-
-    def __init__(self):
-        self.table = array.array('L', [0]*256)
-        self.regenerate_table()
-
-    def regenerate_table(self):
-        # magic constant from nsca source
-        poly = 0xEDB88320
-        for i in xrange(256):
-            crc = i
-            for j in xrange(8, 0, -1):
-                if (crc & 1):
-                    crc = (crc>>1)^poly
-                else:
-                    crc = (crc>>1)
-            self.table[i] = crc
-
     def calculate(self, buf):
-        crc = 0xFFFFFFFF
-        for i,char in enumerate(buf):
-            crc = ((crc>>8) & 0xFFFFFFFF) ^ self.table[(crc ^ ord(char)) & 0xFF]
-        return crc ^ 0xFFFFFFFF
+        return binascii.crc32(buf) & 0xffffffffL
 
 ########  WIRE PROTOCOL IMPLEMENTATION ########
 
