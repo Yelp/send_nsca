@@ -335,26 +335,35 @@ class NscaSender(object):
     def send_host(self, host, state, description):
         return self.send_service(host, '', state, description)
 
-    def connect(self):
-        if self._connected:
-            return
+    def _sock_connect(self, host, port, timeout=None, connect_all=True):
         conns = []
-        for (family, socktype, proto, canonname, sockaddr) in socket.getaddrinfo(self.remote_host, self.port, socket.AF_UNSPEC, socket.SOCK_STREAM, 0, 0):
+        for (family, socktype, proto, canonname, sockaddr) in socket.getaddrinfo(host, port, socket.AF_UNSPEC, socket.SOCK_STREAM, 0, 0):
             try:
                 s = socket.socket(family, socktype, proto)
                 s.connect(sockaddr)
                 conns.append(s)
-                if self.timeout:
-                    s.settimeout(self.timeout)
-                if not self.send_to_all:
+                if timeout is not None:
+                    s.settimeout(timeout)
+                if not connect_all:
                     break
             except socket.error:
                 continue
         if not conns:
             raise socket.error("could not connect to %s:%d" % (self.remote_host, self.port))
+        return conns
+
+    def _handshake_all(self, conns):
+        handshakes = []
         for conn in conns:
             iv, timestamp = self._read_init_packet(conn)
-            self._conns.append((conn, iv, timestamp))
+            handshakes.append((conn, iv, timestamp))
+        return handshakes
+
+    def connect(self):
+        if self._connected:
+            return
+        conns = self._sock_connect(self.remote_host, self.port, self.timeout, connect_all=self.send_to_all)
+        self._conns.extend(self._handshake_all(conns))
         self._connected = True
 
     def disconnect(self):
@@ -362,6 +371,7 @@ class NscaSender(object):
             return
         for conn, _, _ in self._conns:
             conn.close()
+        self._conns = []
         self._connected = False
 
     def _read_init_packet(self, fd):
