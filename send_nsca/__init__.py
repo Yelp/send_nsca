@@ -4,8 +4,9 @@ from .nsca import NscaSender, log
 # make pyflakes happy
 States = States
 
-version_info = (0, 1, 2)
-version = ".".join(map(str, version_info))
+version_info = (0, 1, 3)
+__version__ = ".".join(map(str, version_info))
+__author__ = "James Brown <jbrown@yelp.com>"
 
 def send_nsca(status, host_name, service_name, text_output, remote_host, **kwargs):
     """Helper function to easily send a NSCA message (wraps .nsca.NscaSender)
