@@ -22,6 +22,7 @@
 from __future__ import with_statement
 
 import array
+import binascii
 import functools
 import math
 import logging
@@ -47,6 +48,8 @@ MAX_PLUGINOUTPUT_LENGTH = 512
 _TRANSMITTED_IV_SIZE = 128
 
 PACKET_VERSION = 3
+
+DEFAULT_PORT = 5667
 
 log = logging.getLogger("send_nsca")
 
@@ -189,33 +192,6 @@ class AES256Crypter(CryptoCrypter):
     CryptoCipher = Crypto.Cipher.AES
     key_size = 32
 
-########  CRC32 IMPLEMENTATION ########
-
-class CRC32(object):
-    """NSCA-specific CRC32 implementation"""
-
-    def __init__(self):
-        self.table = array.array('L', [0]*256)
-        self.regenerate_table()
-
-    def regenerate_table(self):
-        # magic constant from nsca source
-        poly = 0xEDB88320
-        for i in xrange(256):
-            crc = i
-            for j in xrange(8, 0, -1):
-                if (crc & 1):
-                    crc = (crc>>1)^poly
-                else:
-                    crc = (crc>>1)
-            self.table[i] = crc
-
-    def calculate(self, buf):
-        crc = 0xFFFFFFFF
-        for i,char in enumerate(buf):
-            crc = ((crc>>8) & 0xFFFFFFFF) ^ self.table[(crc ^ ord(char)) & 0xFF]
-        return crc ^ 0xFFFFFFFF
-
 ########  WIRE PROTOCOL IMPLEMENTATION ########
 
 _data_packet_format = '!hxxLLh%ds%ds%dsxx' % (MAX_HOSTNAME_LENGTH, MAX_DESCRIPTION_LENGTH, MAX_PLUGINOUTPUT_LENGTH)
@@ -224,7 +200,7 @@ _init_packet_format = '!%dsL' % (_TRANSMITTED_IV_SIZE,)
 def get_random_alphanumeric_bytes(bytesz):
     return ''.join(chr(random.randrange(ord('0'), ord('Z'))) for _ in xrange(bytesz))
 
-def _pack_packet(hostname, service, state, output, timestamp, crc):
+def _pack_packet(hostname, service, state, output, timestamp):
     """This is more complicated than a call to struct.pack() because we want
     to pad our strings with random bytes, instead of with zeros."""
     requested_length = struct.calcsize(_data_packet_format)
@@ -252,7 +228,7 @@ def _pack_packet(hostname, service, state, output, timestamp, crc):
         output += get_random_alphanumeric_bytes(MAX_PLUGINOUTPUT_LENGTH - len(output))
     struct.pack_into('%ds' % (MAX_PLUGINOUTPUT_LENGTH,), packet, offset, output)
     # compute the CRC32 of what we have so far
-    crc_val = crc.calculate(packet)
+    crc_val = binascii.crc32(packet) & 0xffffffffL
     struct.pack_into('!L', packet, 4, crc_val)
     return packet.tostring()
 
@@ -272,7 +248,7 @@ class ConfigParseError(StandardError):
         return "ConfigParseError(%s, %d, %s)" % (self.filename, self.lineno, self.msg)
 
 class NscaSender(object):
-    def __init__(self, remote_host, config_path='/etc/send_nsca.cfg', port=5667, timeout=10, send_to_all=True):
+    def __init__(self, remote_host, config_path='/etc/send_nsca.cfg', port=DEFAULT_PORT, timeout=10, send_to_all=True):
         """Constructor
 
         Arguments:
@@ -288,73 +264,98 @@ class NscaSender(object):
         self.send_to_all = send_to_all
         self._conns = []
         self._connected = False
-        self.CRC32 = CRC32()
         self.Crypter = Crypter
         self._cached_crypters = {}
         self.random_pool = Crypto.Util.randpool.RandomPool()
         if config_path is not None:
-            self.parse_config(config_path)
+            with open(config_path, 'r') as f:
+                self.parse_config(f, config_path=config_path)
 
-    def parse_config(self, config_path):
-        with open(config_path, 'r') as f:
-            for line_no, line in enumerate(f):
-                if '=' not in line or line.lstrip().startswith('#'):
-                    continue
-                key, value = [res.strip() for res in line.split('=')]
-                try:
-                    if key == 'password':
-                        if len(value) > MAX_PASSWORD_LENGTH:
-                            raise ConfigParseError(config_path, line_no, "Password too long; max %d" % MAX_PASSWORD_LENGTH)
-                        self.password = str(value)
-                    elif key == 'encryption_method':
-                        self.encryption_method_i = int(value)
-                        if self.encryption_method_i not in crypters.keys():
-                            raise ConfigParseError(config_path, line_no, "Unrecognized uncryption method %d" % (self.encryption_method_i,))
-                        self.Crypter = crypters[self.encryption_method_i]
-                        if issubclass(self.Crypter, UnsupportedCrypter):
-                            raise ConfigParseError(config_path, line_no, "Unsupported cipher type %d (%s)" % (self.Crypter.crypt_id, self.Crypter.__name__))
-                    else:
-                        raise ConfigParseError(config_path, line_no, "Unrecognized key '%s'" % (key,))
-                except ConfigParseError:
-                    raise
-                except:
-                    raise ConfigParseError(config_path, line_no, "Could not parse value '%s' for key '%s'" % (value, key))
+    def parse_config(self, config_file_object, config_path=""):
+        config_file_object.seek(0)
+        for line_no, line in enumerate(config_file_object):
+            if '=' not in line or line.lstrip().startswith('#'):
+                continue
+            key, value = [res.strip() for res in line.split('=')]
+            try:
+                if key == 'password':
+                    if len(value) > MAX_PASSWORD_LENGTH:
+                        raise ConfigParseError(config_path, line_no, "Password too long; max %d" % MAX_PASSWORD_LENGTH)
+                    self.password = str(value)
+                elif key == 'encryption_method':
+                    self.encryption_method_i = int(value)
+                    if self.encryption_method_i not in crypters.keys():
+                        raise ConfigParseError(config_path, line_no, "Unrecognized uncryption method %d" % (self.encryption_method_i,))
+                    self.Crypter = crypters[self.encryption_method_i]
+                    if issubclass(self.Crypter, UnsupportedCrypter):
+                        raise ConfigParseError(config_path, line_no, "Unsupported cipher type %d (%s)" % (self.Crypter.crypt_id, self.Crypter.__name__))
+                else:
+                    raise ConfigParseError(config_path, line_no, "Unrecognized key '%s'" % (key,))
+            except ConfigParseError:
+                raise
+            except:
+                raise ConfigParseError(config_path, line_no, "Could not parse value '%s' for key '%s'" % (value, key))
 
-    def send_service(self, host, service, state, description):
+    def _check_alert(self, host=None, service=None, state=None, description=None):
         if state not in nagios.States.keys():
             raise ValueError("state %r should be one of {%s}" % (state, ','.join(map(str, nagios.States.keys()))))
+        if not isinstance(host, (bytes, str)):
+            raise ValueError("host %r must be a non-unicode string" % (host))
+        if len(host) > MAX_HOSTNAME_LENGTH:
+            raise ValueError("host %r too long (max length %d)" % (host, MAX_HOSTNAME_LENGTH))
+        if not isinstance(description, (bytes, str)):
+            raise ValueError("plugin output %r must be a non-unicode string" % (description))
+        if len(description) > MAX_PLUGINOUTPUT_LENGTH:
+            raise ValueError("plugin output %r too long (max length %d)" % (description, MAX_PLUGINOUTPUT_LENGTH))
+        if service is not None:
+            if not isinstance(service, (bytes, str)):
+                raise ValueError("service %r must be a non-unicode string" % (service))
+            if len(service) > MAX_DESCRIPTION_LENGTH:
+                raise ValueError("service %r too long (max length %d)" % (service, MAX_DESCRIPTION_LENGTH))
+
+    def send_service(self, host, service, state, description):
+        self._check_alert(host=host, service=service, state=state, description=description)
         self.connect()
         for conn, iv, timestamp in self._conns:
             if conn not in self._cached_crypters:
                 self._cached_crypters[conn] = self.Crypter(iv, self.password, self.random_pool)
             crypter = self._cached_crypters[conn]
-            packet = _pack_packet(host, service, state, description, timestamp, self.CRC32)
+            packet = _pack_packet(host, service, state, description, timestamp)
             packet = crypter.encrypt(packet)
             conn.sendall(packet)
 
     def send_host(self, host, state, description):
         return self.send_service(host, '', state, description)
 
-    def connect(self):
-        if self._connected:
-            return
+    def _sock_connect(self, host, port, timeout=None, connect_all=True):
         conns = []
-        for (family, socktype, proto, canonname, sockaddr) in socket.getaddrinfo(self.remote_host, self.port, socket.AF_UNSPEC, socket.SOCK_STREAM, 0, 0):
+        for (family, socktype, proto, canonname, sockaddr) in socket.getaddrinfo(host, port, socket.AF_UNSPEC, socket.SOCK_STREAM, 0, 0):
             try:
                 s = socket.socket(family, socktype, proto)
                 s.connect(sockaddr)
                 conns.append(s)
-                if self.timeout:
-                    s.settimeout(self.timeout)
-                if not self.send_to_all:
+                if timeout is not None:
+                    s.settimeout(timeout)
+                if not connect_all:
                     break
             except socket.error:
                 continue
         if not conns:
             raise socket.error("could not connect to %s:%d" % (self.remote_host, self.port))
+        return conns
+
+    def _handshake_all(self, conns):
+        handshakes = []
         for conn in conns:
             iv, timestamp = self._read_init_packet(conn)
-            self._conns.append((conn, iv, timestamp))
+            handshakes.append((conn, iv, timestamp))
+        return handshakes
+
+    def connect(self):
+        if self._connected:
+            return
+        conns = self._sock_connect(self.remote_host, self.port, self.timeout, connect_all=self.send_to_all)
+        self._conns.extend(self._handshake_all(conns))
         self._connected = True
 
     def disconnect(self):
@@ -362,6 +363,7 @@ class NscaSender(object):
             return
         for conn, _, _ in self._conns:
             conn.close()
+        self._conns = []
         self._connected = False
 
     def _read_init_packet(self, fd):
