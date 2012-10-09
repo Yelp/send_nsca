@@ -17,11 +17,7 @@ class SmokeTestCase(TestCase):
         ]
         with mock.patch('send_nsca.nsca.get_random_alphanumeric_bytes', mock_random_alphanumeric_bytes):
             for args, result in vectors:
-                try:
-                    assert_equal(send_nsca.nsca._pack_packet(*args), result)
-                except:
-                    print repr(send_nsca.nsca._pack_packet(*args))
-                    print
+                assert_equal(send_nsca.nsca._pack_packet(*args), result)
 
 if __name__ == '__main__':
     run()
