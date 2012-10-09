@@ -49,6 +49,8 @@ _TRANSMITTED_IV_SIZE = 128
 
 PACKET_VERSION = 3
 
+DEFAULT_PORT = 5667
+
 log = logging.getLogger("send_nsca")
 
 ########  CIPHERS AND CRYPTERS IMPLEMENTATION ########
@@ -246,7 +248,7 @@ class ConfigParseError(StandardError):
         return "ConfigParseError(%s, %d, %s)" % (self.filename, self.lineno, self.msg)
 
 class NscaSender(object):
-    def __init__(self, remote_host, config_path='/etc/send_nsca.cfg', port=5667, timeout=10, send_to_all=True):
+    def __init__(self, remote_host, config_path='/etc/send_nsca.cfg', port=DEFAULT_PORT, timeout=10, send_to_all=True):
         """Constructor
 
         Arguments:
@@ -266,32 +268,33 @@ class NscaSender(object):
         self._cached_crypters = {}
         self.random_pool = Crypto.Util.randpool.RandomPool()
         if config_path is not None:
-            self.parse_config(config_path)
+            with open(config_path, 'r') as f:
+                self.parse_config(f, config_path=config_path)
 
-    def parse_config(self, config_path):
-        with open(config_path, 'r') as f:
-            for line_no, line in enumerate(f):
-                if '=' not in line or line.lstrip().startswith('#'):
-                    continue
-                key, value = [res.strip() for res in line.split('=')]
-                try:
-                    if key == 'password':
-                        if len(value) > MAX_PASSWORD_LENGTH:
-                            raise ConfigParseError(config_path, line_no, "Password too long; max %d" % MAX_PASSWORD_LENGTH)
-                        self.password = str(value)
-                    elif key == 'encryption_method':
-                        self.encryption_method_i = int(value)
-                        if self.encryption_method_i not in crypters.keys():
-                            raise ConfigParseError(config_path, line_no, "Unrecognized uncryption method %d" % (self.encryption_method_i,))
-                        self.Crypter = crypters[self.encryption_method_i]
-                        if issubclass(self.Crypter, UnsupportedCrypter):
-                            raise ConfigParseError(config_path, line_no, "Unsupported cipher type %d (%s)" % (self.Crypter.crypt_id, self.Crypter.__name__))
-                    else:
-                        raise ConfigParseError(config_path, line_no, "Unrecognized key '%s'" % (key,))
-                except ConfigParseError:
-                    raise
-                except:
-                    raise ConfigParseError(config_path, line_no, "Could not parse value '%s' for key '%s'" % (value, key))
+    def parse_config(self, config_file_object, config_path=""):
+        config_file_object.seek(0)
+        for line_no, line in enumerate(config_file_object):
+            if '=' not in line or line.lstrip().startswith('#'):
+                continue
+            key, value = [res.strip() for res in line.split('=')]
+            try:
+                if key == 'password':
+                    if len(value) > MAX_PASSWORD_LENGTH:
+                        raise ConfigParseError(config_path, line_no, "Password too long; max %d" % MAX_PASSWORD_LENGTH)
+                    self.password = str(value)
+                elif key == 'encryption_method':
+                    self.encryption_method_i = int(value)
+                    if self.encryption_method_i not in crypters.keys():
+                        raise ConfigParseError(config_path, line_no, "Unrecognized uncryption method %d" % (self.encryption_method_i,))
+                    self.Crypter = crypters[self.encryption_method_i]
+                    if issubclass(self.Crypter, UnsupportedCrypter):
+                        raise ConfigParseError(config_path, line_no, "Unsupported cipher type %d (%s)" % (self.Crypter.crypt_id, self.Crypter.__name__))
+                else:
+                    raise ConfigParseError(config_path, line_no, "Unrecognized key '%s'" % (key,))
+            except ConfigParseError:
+                raise
+            except:
+                raise ConfigParseError(config_path, line_no, "Could not parse value '%s' for key '%s'" % (value, key))
 
     def _check_alert(self, host=None, service=None, state=None, description=None):
         if state not in nagios.States.keys():
