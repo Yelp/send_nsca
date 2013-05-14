@@ -13,8 +13,8 @@ setup(
     classifiers=[
         "Programming Language :: Python",
         "Operating System :: OS Independent",
-        "License :: OSI Approved :: GNU Lesser General Public License v2 (LGPLv2)"
-        "Topic :: System :: Monitoring"
+        "License :: OSI Approved :: GNU Lesser General Public License v2 (LGPLv2)",
+        "Topic :: System :: Monitoring",
         "Intended Audience :: Developers",
         "Development Status :: 4 - Beta",
     ],
