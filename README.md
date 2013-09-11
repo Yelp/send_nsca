@@ -1,3 +1,6 @@
+[![Build Status](https://travis-ci.org/Roguelazer/send_nsca.png?branch=master)](https://travis-ci.org/Roguelazer/send_nsca)
+
+
 Overview
 ----
 NSCA is the remote passive acceptance daemon used with many Nagios installs. It
