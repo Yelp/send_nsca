@@ -8,17 +8,16 @@ multiple hosts with one invocation, and timeouts.
 
 Credits/Copyright/License
 ---
-- This software was written by James Brown <jbrown@yelp.com>.
-- (C) 2012 Yelp, Inc.
+- This software was written by James Brown <jbrown@uber.com>.
 - This software is licensed under the LGPL v2.1
 
 Testing
 -----
 The unit/integration tests for this package are located in the `tests/`
-directory.  Unit tests only require the Testify package
-(<https://www.github.com/Yelp/Testify>); integration tests also require the
-`nsca` binary. To run them, simply make sure that your `$PYTHONPATH` is set
-up correctly and run `testify -v tests`.
+directory.  Unit tests only require the unittest2 package (or python 2.7+)
+and the mock library; integration tests also require the `nsca` binary. To
+run them, simply make sure that your `$PYTHONPATH` is set up correctly and
+run `nosetests -v tests`.
 
 Installing
 -----
@@ -28,5 +27,3 @@ and it's easy to write packaging for your favorite OS.
 Contributing
 ----------
 It's Github; fork away!
-
-If you really like what you see, maybe you would like to [work here](http://www.yelp.com/careers)?
