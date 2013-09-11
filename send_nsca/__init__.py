@@ -4,7 +4,7 @@ from .nsca import NscaSender, log
 # make pyflakes happy
 States = States
 
-version_info = (0, 1, 3)
+version_info = (0, 1, 4)
 __version__ = ".".join(map(str, version_info))
 __author__ = "James Brown <jbrown@yelp.com>"
 
