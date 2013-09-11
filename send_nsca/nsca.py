@@ -24,8 +24,9 @@ from __future__ import with_statement
 import array
 import binascii
 import functools
-import math
 import logging
+import math
+import os
 import random
 import socket
 import struct
@@ -71,10 +72,10 @@ class Crypter(object):
 
     crypt_id = -1
 
-    def __init__(self, iv, password, random_pool):
+    def __init__(self, iv, password, random_generator):
         self.iv = iv
         self.password = password
-        self.random_pool = random_pool
+        self.random_generator = random_generator
 
     def encrypt(self, value):
         raise NotImplementedError("Implement me!")
@@ -128,7 +129,7 @@ class CryptoCrypter(Crypter):
         if len(self.iv) >= self.CryptoCipher.block_size:
             iv = self.iv[:iv_size]
         else:
-            iv += self.random_pool.get_bytes(iv_size - self.iv)
+            iv += self.random_generator(iv_size - self.iv)
         self.crypter = self.CryptoCipher.new(key, self.CryptoCipher.MODE_CFB, iv)
 
     def encrypt(self, value):
@@ -290,7 +291,7 @@ class NscaSender(object):
         self._connected = False
         self.Crypter = Crypter
         self._cached_crypters = {}
-        self.random_pool = Crypto.Util.randpool.RandomPool()
+        self.random_generator = os.urandom
         if config_path is not None:
             with open(config_path, 'r') as f:
                 self.parse_config(f, config_path=config_path)
@@ -350,7 +351,7 @@ class NscaSender(object):
         self.connect()
         for conn, iv, timestamp in self._conns:
             if conn not in self._cached_crypters:
-                self._cached_crypters[conn] = self.Crypter(iv, self.password, self.random_pool)
+                self._cached_crypters[conn] = self.Crypter(iv, self.password, self.random_generator)
             crypter = self._cached_crypters[conn]
             packet = _pack_packet(host, service, state, description, timestamp)
             packet = crypter.encrypt(packet)
