@@ -10,7 +10,7 @@
 # Not quite feature-complete. The simpler encryption algorithms (null,
 # XOR, DES, 3DES, Blowfish, ARC2, and CAST) work, but AES doesn't work
 # (the AES that nsca uses isn't compatible with PyCrypto's for reasons
-# that I haven't yet determined). Also, ARC4 is broken upstream, and I 
+# that I haven't yet determined). Also, ARC4 is broken upstream, and I
 # didn't fix it.
 #
 # Copyright (C) 2012 Yelp, Inc.
@@ -57,12 +57,14 @@ log = logging.getLogger("send_nsca")
 
 crypters = {}
 
+
 class _MetaCrypter(type):
     def __new__(clsarg, *args, **kwargs):
         cls = super(_MetaCrypter, clsarg).__new__(clsarg, *args, **kwargs)
         if cls.crypt_id >= 0:
             crypters[cls.crypt_id] = cls
         return cls
+
 
 class Crypter(object):
     __metaclass__ = _MetaCrypter
@@ -77,14 +79,17 @@ class Crypter(object):
     def encrypt(self, value):
         raise NotImplementedError("Implement me!")
 
+
 class UnsupportedCrypter(Crypter):
     crypt_id = -1
+
 
 class NullCrypter(Crypter):
     crypt_id = 0
 
     def encrypt(self, value):
         return value
+
 
 class XORCrypter(Crypter):
     crypt_id = 1
@@ -97,6 +102,7 @@ class XORCrypter(Crypter):
         xor1 = map(xorer, zip(value_s, repeated_iv))
         xor2 = map(xorer, zip(xor1, repeated_password))
         return ''.join(map(chr, xor2))
+
 
 class CryptoCrypter(Crypter):
     crypt_id = -1
@@ -128,45 +134,56 @@ class CryptoCrypter(Crypter):
     def encrypt(self, value):
         return self.crypter.encrypt(value)
 
+
 class DESCrypter(CryptoCrypter):
     crypt_id = 2
     CryptoCipher = Crypto.Cipher.DES
     key_size = 8
+
 
 class DES3Crypter(CryptoCrypter):
     crypt_id = 3
     CryptoCipher = Crypto.Cipher.DES3
     key_size = 24
 
+
 class CAST128Crypter(CryptoCrypter):
     crypt_id = 4
     CryptoCipher = Crypto.Cipher.CAST
     key_size = 16
 
+
 class CAST256Crypter(UnsupportedCrypter):
     crypt_id = 5
+
 
 class XTEACrypter(UnsupportedCrypter):
     crypt_id = 6
 
+
 class ThreeWayCrypter(UnsupportedCrypter):
     crypt_id = 7
+
 
 class BlowFishCrypter(CryptoCrypter):
     crypt_id = 8
     CryptoCipher = Crypto.Cipher.Blowfish
     key_size = 56
 
+
 class TwoFishCrypter(UnsupportedCrypter):
     crypt_id = 9
 
+
 class Loki97Crypter(UnsupportedCrypter):
     crypt_id = 10
+
 
 class RC2Crypter(CryptoCrypter):
     crypt_id = 11
     CryptoCipher = Crypto.Cipher.ARC2
     key_size = 128
+
 
 class RC4Crypter(UnsupportedCrypter):
     crypt_id = 12
@@ -174,18 +191,22 @@ class RC4Crypter(UnsupportedCrypter):
     # for it (since server-side always runs in CFB mode, even though RC4
     # doesn't have a CFB mode)
 
+
 class RC6Crypter(UnsupportedCrypter):
     crypt_id = 13
+
 
 class AES128Crypter(CryptoCrypter):
     crypt_id = 14
     CryptoCipher = Crypto.Cipher.AES
     key_size = 16
 
+
 class AES192Crypter(CryptoCrypter):
     crypt_id = 15
     CryptoCipher = Crypto.Cipher.AES
     key_size = 24
+
 
 class AES256Crypter(CryptoCrypter):
     crypt_id = 16
@@ -197,8 +218,10 @@ class AES256Crypter(CryptoCrypter):
 _data_packet_format = '!hxxLLh%ds%ds%dsxx' % (MAX_HOSTNAME_LENGTH, MAX_DESCRIPTION_LENGTH, MAX_PLUGINOUTPUT_LENGTH)
 _init_packet_format = '!%dsL' % (_TRANSMITTED_IV_SIZE,)
 
+
 def get_random_alphanumeric_bytes(bytesz):
     return ''.join(chr(random.randrange(ord('0'), ord('Z'))) for _ in xrange(bytesz))
+
 
 def _pack_packet(hostname, service, state, output, timestamp):
     """This is more complicated than a call to struct.pack() because we want
@@ -247,6 +270,7 @@ class ConfigParseError(StandardError):
     def __repr__(self):
         return "ConfigParseError(%s, %d, %s)" % (self.filename, self.lineno, self.msg)
 
+
 class NscaSender(object):
     def __init__(self, remote_host, config_path='/etc/send_nsca.cfg', port=DEFAULT_PORT, timeout=10, send_to_all=True):
         """Constructor
@@ -285,10 +309,18 @@ class NscaSender(object):
                 elif key == 'encryption_method':
                     self.encryption_method_i = int(value)
                     if self.encryption_method_i not in crypters.keys():
-                        raise ConfigParseError(config_path, line_no, "Unrecognized uncryption method %d" % (self.encryption_method_i,))
+                        raise ConfigParseError(
+                            config_path,
+                            line_no,
+                            "Unrecognized uncryption method %d" % (self.encryption_method_i,)
+                        )
                     self.Crypter = crypters[self.encryption_method_i]
                     if issubclass(self.Crypter, UnsupportedCrypter):
-                        raise ConfigParseError(config_path, line_no, "Unsupported cipher type %d (%s)" % (self.Crypter.crypt_id, self.Crypter.__name__))
+                        raise ConfigParseError(
+                            config_path,
+                            line_no,
+                            "Unsupported cipher type %d (%s)" % (self.Crypter.crypt_id, self.Crypter.__name__)
+                        )
                 else:
                     raise ConfigParseError(config_path, line_no, "Unrecognized key '%s'" % (key,))
             except ConfigParseError:
@@ -329,7 +361,8 @@ class NscaSender(object):
 
     def _sock_connect(self, host, port, timeout=None, connect_all=True):
         conns = []
-        for (family, socktype, proto, canonname, sockaddr) in socket.getaddrinfo(host, port, socket.AF_UNSPEC, socket.SOCK_STREAM, 0, 0):
+        for (family, socktype, proto, canonname, sockaddr) in socket.getaddrinfo(
+                host, port, socket.AF_UNSPEC, socket.SOCK_STREAM, 0, 0):
             try:
                 s = socket.socket(family, socktype, proto)
                 s.connect(sockaddr)

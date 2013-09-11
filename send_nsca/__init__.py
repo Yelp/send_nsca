@@ -8,6 +8,7 @@ version_info = (0, 1, 3)
 __version__ = ".".join(map(str, version_info))
 __author__ = "James Brown <jbrown@yelp.com>"
 
+
 def send_nsca(status, host_name, service_name, text_output, remote_host, **kwargs):
     """Helper function to easily send a NSCA message (wraps .nsca.NscaSender)
 
@@ -27,6 +28,7 @@ def send_nsca(status, host_name, service_name, text_output, remote_host, **kwarg
     except Exception, e:
         log.error("Unable to send NSCA packet to %s for %s:%s (%s)", remote_host, host_name, service_name, str(e))
 
+
 def nsca_ok(host_name, service_name, text_output, remote_host, **kwargs):
     """Wrapper for the send_nsca() function to easily send an OK
 
@@ -38,7 +40,15 @@ def nsca_ok(host_name, service_name, text_output, remote_host, **kwargs):
 
         All other arguments are passed to the NscaSender constructor
     """
-    return send_nsca(status=STATE_OK, host_name=host_name, service_name=service_name, text_output=text_output, remote_host=remote_host, **kwargs)
+    return send_nsca(
+        status=STATE_OK,
+        host_name=host_name,
+        service_name=service_name,
+        text_output=text_output,
+        remote_host=remote_host,
+        **kwargs
+    )
+
 
 def nsca_warning(host_name, service_name, text_output, remote_host, **kwargs):
     """Wrapper for the send_nsca() function to easily send a WARNING
@@ -51,7 +61,15 @@ def nsca_warning(host_name, service_name, text_output, remote_host, **kwargs):
 
         All other arguments are passed to the NscaSender constructor
     """
-    return send_nsca(status=STATE_WARNING, host_name=host_name, service_name=service_name, text_output=text_output, remote_host=remote_host, **kwargs)
+    return send_nsca(
+        status=STATE_WARNING,
+        host_name=host_name,
+        service_name=service_name,
+        text_output=text_output,
+        remote_host=remote_host,
+        **kwargs
+    )
+
 
 def nsca_critical(host_name, service_name, text_output, remote_host, **kwargs):
     """Wrapper for the send_nsca() function to easily send a CRITICAL
@@ -64,7 +82,15 @@ def nsca_critical(host_name, service_name, text_output, remote_host, **kwargs):
 
         All other arguments are passed to the NscaSender constructor
     """
-    return send_nsca(status=STATE_CRITICAL, host_name=host_name, service_name=service_name, text_output=text_output, remote_host=remote_host, **kwargs)
+    return send_nsca(
+        status=STATE_CRITICAL,
+        host_name=host_name,
+        service_name=service_name,
+        text_output=text_output,
+        remote_host=remote_host,
+        **kwargs
+    )
+
 
 def nsca_unknown(host_name, service_name, text_output, remote_host, **kwargs):
     """Wrapper for the send_nsca() function to easily send an UNKNONW
@@ -77,4 +103,11 @@ def nsca_unknown(host_name, service_name, text_output, remote_host, **kwargs):
 
         All other arguments are passed to the NscaSender constructor
     """
-    return send_nsca(status=STATE_UNKNOWN, host_name=host_name, service_name=service_name, text_output=text_output, remote_host=remote_host, **kwargs)
+    return send_nsca(
+        status=STATE_UNKNOWN,
+        host_name=host_name,
+        service_name=service_name,
+        text_output=text_output,
+        remote_host=remote_host,
+        **kwargs
+    )
