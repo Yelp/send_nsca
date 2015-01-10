@@ -1,10 +1,11 @@
 import socket
 
 import mock
-from testify import TestCase, run, assert_raises, assert_equal, assert_length, setup
+from unittest2 import TestCase
 
 import send_nsca
 from send_nsca.nsca import DEFAULT_PORT
+
 
 class TestConnectionLogic(TestCase):
     host_one = '10.0.0.1'
@@ -18,8 +19,7 @@ class TestConnectionLogic(TestCase):
     sigil_one = object()
     sigil_two = object()
 
-    @setup
-    def build_sender(self):
+    def setUp(self):
         self.sender = send_nsca.NscaSender('test_host', config_path=None)
 
     def test_no_result_fails(self):
@@ -28,8 +28,8 @@ class TestConnectionLogic(TestCase):
         # right
         test_port = 3770
         with mock.patch('socket.getaddrinfo', mock_getaddrinfo):
-            assert_raises(socket.error, self.sender._sock_connect, 'test_host', test_port)
-            assert_raises(socket.error, self.sender.connect)
+            self.assertRaises(socket.error, self.sender._sock_connect, 'test_host', test_port)
+            self.assertRaises(socket.error, self.sender.connect)
         mock_getaddrinfo.assert_any_call('test_host', test_port, socket.AF_UNSPEC, socket.SOCK_STREAM, 0, 0)
         mock_getaddrinfo.assert_any_call('test_host', DEFAULT_PORT, socket.AF_UNSPEC, socket.SOCK_STREAM, 0, 0)
 
@@ -49,7 +49,7 @@ class TestConnectionLogic(TestCase):
         with mock.patch('socket.getaddrinfo', mock_getaddrinfo):
             with mock.patch('socket.socket', mock_socket):
                 self.sender._sock_connect('foo', 1, timeout=test_timeout, connect_all=False)
-        assert_equal(mock_socket.call_count, 1)
+        self.assertEqual(mock_socket.call_count, 1)
         mock_socket.return_value.settimeout.assert_called_once_with(test_timeout)
         mock_socket.return_value.connect.assert_called_once_with((self.host_one, DEFAULT_PORT))
 
@@ -59,13 +59,14 @@ class TestConnectionLogic(TestCase):
         with mock.patch('socket.getaddrinfo', mock_getaddrinfo):
             with mock.patch('socket.socket', mock_socket):
                 self.sender._sock_connect('foo', 1, connect_all=True)
-        assert_equal(mock_socket.call_count, 3)
+        self.assertEqual(mock_socket.call_count, 3)
         mock_socket.return_value.connect.assert_any_call((self.host_one, DEFAULT_PORT))
         mock_socket.return_value.connect.assert_any_call((self.host_two, DEFAULT_PORT))
         mock_socket.return_value.connect.assert_any_call((self.host_three, DEFAULT_PORT))
 
     def test_connect_flow(self):
         sockets = []
+
         def add_socket(*args):
             retval = mock.Mock()
             sockets.append(retval)
@@ -79,7 +80,7 @@ class TestConnectionLogic(TestCase):
                     self.sender.connect()
         mock_socket.assert_any_call(socket.AF_INET, socket.SOCK_STREAM, socket.SOL_TCP)
         mock_socket.assert_any_call(socket.AF_INET, socket.SOCK_STREAM, socket.SOL_UDP)
-        assert_length(sockets, 2)
+        self.assertEqual(len(sockets), 2)
         mock_read_iv.assert_any_call(sockets[0])
         mock_read_iv.assert_any_call(sockets[1])
 
@@ -98,6 +99,3 @@ class TestConnectionLogic(TestCase):
         mock_socket.assert_any_call(socket.AF_INET, socket.SOCK_STREAM, socket.SOL_TCP)
         mock_socket.return_value.settimeout.assert_called_once_with(test_timeout)
         mock_socket.return_value.close.assert_called_once_with()
-
-if __name__ == '__main__':
-    run()
