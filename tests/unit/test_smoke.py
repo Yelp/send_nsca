@@ -1,11 +1,13 @@
 import mock
-from testify import TestCase, run, assert_equal
+from unittest2 import TestCase
 
 import send_nsca
+
 
 def mock_random_alphanumeric_bytes(bytesz):
     """mock that returns decidedly un-random alphanumeric bytes"""
     return ''.join(['0'] * bytesz)
+
 
 class SmokeTestCase(TestCase):
     """Some random smoke tests"""
@@ -17,7 +19,4 @@ class SmokeTestCase(TestCase):
         ]
         with mock.patch('send_nsca.nsca.get_random_alphanumeric_bytes', mock_random_alphanumeric_bytes):
             for args, result in vectors:
-                assert_equal(send_nsca.nsca._pack_packet(*args), result)
-
-if __name__ == '__main__':
-    run()
+                self.assertEqual(send_nsca.nsca._pack_packet(*args), result)

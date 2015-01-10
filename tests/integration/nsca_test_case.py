@@ -10,12 +10,13 @@ import subprocess
 import tempfile
 import time
 
-from testify import TestCase, class_setup, class_teardown
+from unittest2 import TestCase
 
 from send_nsca.nsca import NscaSender
 
 
 NSCA_CFG_TEMPLATE = """
+server_address=127.0.0.1
 password='TestingPassword'
 decryption_method=%(crypto_method)d
 max_packet_age=30
@@ -53,8 +54,6 @@ ServiceCheckResult = collections.namedtuple("ServiceCheckResult", ["host_name", 
 
 class NSCATestCase(TestCase):
 
-    __test__ = False
-
     crypto_method = 1
     max_read_time = 4
 
@@ -64,6 +63,7 @@ class NSCATestCase(TestCase):
         with open(self.send_nsca_config_path, 'w') as f:
             f.write(SEND_NSCA_CFG_TEMPLATE % {'crypto_method': self.crypto_method})
         self.nsca_process = subprocess.Popen(["nsca", "-f", "-c", self.nsca_config_path])
+    	time.sleep(0.25)  # give nsca a moment to start up
 
     def expect_checks(self, n_checks):
         # This is only complicated because we use the FIFO in non-blocking
@@ -76,7 +76,7 @@ class NSCATestCase(TestCase):
         lines = []
         hung_up = False
         while now - start_time < self.max_read_time and not hung_up:
-            events = poller.poll(self.max_read_time - (now - start_time))
+            poller.poll(self.max_read_time - (now - start_time))
             now = time.time()
             while True:
                 try:
@@ -84,7 +84,7 @@ class NSCATestCase(TestCase):
                     if not l.rstrip("\n"):
                         break
                     lines.append(self.parse_line(l))
-                except IOError, e:
+                except IOError:
                     break
             if len(lines) == n_checks:
                 break
@@ -113,8 +113,7 @@ class NSCATestCase(TestCase):
         else:
             raise ValueError("Unexpected result type %s" % rest.split(";")[0])
 
-    @class_setup
-    def setup_dir(self):
+    def setUp(self):
         self.working_directory = tempfile.mkdtemp()
         self.fifo_name = os.path.join(self.working_directory, 'nsca_fifo')
         self.nsca_config_path = os.path.join(self.working_directory, 'nsca.cfg')
@@ -126,8 +125,7 @@ class NSCATestCase(TestCase):
         self.nsca_process = None
         self._start_nsca()
 
-    @class_teardown
-    def cleanup_dir(self):
+    def tearDown(self):
         if self.nsca_process:
             try:
                 self.nsca_process.terminate()
