@@ -3,3 +3,7 @@ build
 dist
 *.egg-info
 *.egg_info
+
+# Emacs
+\#*\#
+*~
