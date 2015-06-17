@@ -98,10 +98,19 @@ class XORCrypter(Crypter):
     def encrypt(self, value):
         value_s = map(ord, list(value))
         repeated_iv = map(ord, list(int(math.ceil(float(len(value)) / len(self.iv))) * self.iv))
-        repeated_password = map(ord, list(int(math.ceil(float(len(value)) / len(self.password))) * self.password))
+
+        repeated_password = (
+            map(ord, list(int(math.ceil(float(len(value)) / len(self.password))) * self.password))
+            if self.password
+            else None
+        )
         xorer = functools.partial(apply, int.__xor__)
         xor1 = map(xorer, zip(value_s, repeated_iv))
-        xor2 = map(xorer, zip(xor1, repeated_password))
+        xor2 = (
+            map(xorer, zip(xor1, repeated_password))
+            if repeated_password
+            else xor1
+        )
         return ''.join(map(chr, xor2))
 
 
