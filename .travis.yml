@@ -2,7 +2,8 @@ language: python
 python:
     - "2.6"
     - "2.7"
+    - "3.4"
 install:
     - "sudo apt-get install nsca"
-    - "pip install -r requirements.txt -r requirements-tests.txt --use-mirrors"
+    - "pip install -r requirements.txt -r requirements-tests.txt"
 script: "nosetests tests"
