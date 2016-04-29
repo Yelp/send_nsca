@@ -5,7 +5,7 @@ from .nsca import NscaSender, log
 States = States
 
 version_info = (0, 1, 4, 1)
-__version__ = ".".join(map(str, version_info))
+__version__ = ".".join(map(str, version_info)) + '-yelp1'
 __author__ = "James Brown <jbrown@yelp.com>"
 
 
