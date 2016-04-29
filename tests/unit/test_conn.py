@@ -20,7 +20,7 @@ class TestConnectionLogic(TestCase):
     sigil_two = object()
 
     def setUp(self):
-        self.sender = send_nsca.NscaSender('test_host', config_path=None)
+        self.sender = send_nsca.NscaSender(b'test_host', config_path=None)
 
     def test_no_result_fails(self):
         mock_getaddrinfo = mock.Mock(return_value=[])
@@ -28,10 +28,10 @@ class TestConnectionLogic(TestCase):
         # right
         test_port = 3770
         with mock.patch('socket.getaddrinfo', mock_getaddrinfo):
-            self.assertRaises(socket.error, self.sender._sock_connect, 'test_host', test_port)
+            self.assertRaises(socket.error, self.sender._sock_connect, b'test_host', test_port)
             self.assertRaises(socket.error, self.sender.connect)
-        mock_getaddrinfo.assert_any_call('test_host', test_port, socket.AF_UNSPEC, socket.SOCK_STREAM, 0, 0)
-        mock_getaddrinfo.assert_any_call('test_host', DEFAULT_PORT, socket.AF_UNSPEC, socket.SOCK_STREAM, 0, 0)
+        mock_getaddrinfo.assert_any_call(b'test_host', test_port, socket.AF_UNSPEC, socket.SOCK_STREAM, 0, 0)
+        mock_getaddrinfo.assert_any_call(b'test_host', DEFAULT_PORT, socket.AF_UNSPEC, socket.SOCK_STREAM, 0, 0)
 
     def test_sock_connect_one(self):
         mock_getaddrinfo = mock.Mock(return_value=[self.addrinfo_one, self.addrinfo_two, self.addrinfo_three])

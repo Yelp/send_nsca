@@ -38,6 +38,7 @@ import Crypto.Cipher.DES
 import Crypto.Cipher.DES3
 import Crypto.Cipher.CAST
 import Crypto.Util.randpool
+import six
 
 from . import nagios
 
@@ -67,9 +68,7 @@ class _MetaCrypter(type):
         return cls
 
 
-class Crypter(object):
-    __metaclass__ = _MetaCrypter
-
+class Crypter(six.with_metaclass(_MetaCrypter, object)):
     crypt_id = -1
 
     def __init__(self, iv, password, random_generator):
@@ -96,13 +95,12 @@ class XORCrypter(Crypter):
     crypt_id = 1
 
     def encrypt(self, value):
-        value_s = map(ord, list(value))
-        repeated_iv = map(ord, list(int(math.ceil(float(len(value)) / len(self.iv))) * self.iv))
-        repeated_password = map(ord, list(int(math.ceil(float(len(value)) / len(self.password))) * self.password))
-        xorer = functools.partial(apply, int.__xor__)
-        xor1 = map(xorer, zip(value_s, repeated_iv))
-        xor2 = map(xorer, zip(xor1, repeated_password))
-        return ''.join(map(chr, xor2))
+        value_s = six.iterbytes(value)
+        repeated_iv = six.iterbytes(list(int(math.ceil(float(len(value)) / len(self.iv))) * self.iv))
+        repeated_password = six.iterbytes(list(int(math.ceil(float(len(value)) / len(self.password))) * self.password))
+        xor1 = [a ^ b for a, b in zip(value_s, repeated_iv)]
+        xor2 = [a ^ b for a, b in zip(xor1, repeated_password)]
+        return b''.join(map(six.int2byte, xor2))
 
 
 class CryptoCrypter(Crypter):
@@ -125,7 +123,7 @@ class CryptoCrypter(Crypter):
         if len(self.password) >= self.key_size:
             key = self.password[:self.key_size]
         else:
-            key += '\0' * (self.key_size - len(self.password))
+            key += b'\0' * (self.key_size - len(self.password))
         if len(self.iv) >= self.CryptoCipher.block_size:
             iv = self.iv[:iv_size]
         else:
@@ -221,45 +219,45 @@ _init_packet_format = '!%dsL' % (_TRANSMITTED_IV_SIZE,)
 
 
 def get_random_alphanumeric_bytes(bytesz):
-    return ''.join(chr(random.randrange(ord('0'), ord('Z'))) for _ in xrange(bytesz))
+    return ''.join(chr(random.randrange(ord('0'), ord('Z'))) for _ in range(bytesz)).encode('US-ASCII')
 
 
 def _pack_packet(hostname, service, state, output, timestamp):
     """This is more complicated than a call to struct.pack() because we want
     to pad our strings with random bytes, instead of with zeros."""
     requested_length = struct.calcsize(_data_packet_format)
-    packet = array.array('c', '\0'*requested_length)
+    packet = array.array('B', b'\0' * requested_length)
     # first, pack the version, initial crc32, timestamp, and state
     # (collectively:header)
     header_format = '!hxxLLh'
     offset = struct.calcsize(header_format)
     struct.pack_into('!hxxLLh', packet, 0, PACKET_VERSION, 0, timestamp, state)
     # next, pad & pack the hostname
-    hostname = hostname + '\0'
+    hostname = hostname + b'\0'
     if len(hostname) < MAX_HOSTNAME_LENGTH:
         hostname += get_random_alphanumeric_bytes(MAX_HOSTNAME_LENGTH - len(hostname))
     struct.pack_into('!%ds' % (MAX_HOSTNAME_LENGTH,), packet, offset, hostname)
     offset += struct.calcsize('!%ds' % (MAX_HOSTNAME_LENGTH,))
     # next, pad & pack the service description
-    service = service + '\0'
+    service = service + b'\0'
     if len(service) < MAX_DESCRIPTION_LENGTH:
         service += get_random_alphanumeric_bytes(MAX_DESCRIPTION_LENGTH - len(service))
     struct.pack_into('%ds' % (MAX_DESCRIPTION_LENGTH,), packet, offset, service)
     offset += struct.calcsize('!%ds' % (MAX_DESCRIPTION_LENGTH))
     # finally, pad & pack the plugin output
-    output = output + '\0'
+    output = output + b'\0'
     if len(output) < MAX_PLUGINOUTPUT_LENGTH:
         output += get_random_alphanumeric_bytes(MAX_PLUGINOUTPUT_LENGTH - len(output))
     struct.pack_into('%ds' % (MAX_PLUGINOUTPUT_LENGTH,), packet, offset, output)
     # compute the CRC32 of what we have so far
-    crc_val = binascii.crc32(packet) & 0xffffffffL
+    crc_val = binascii.crc32(packet) & 0xffffffff
     struct.pack_into('!L', packet, 4, crc_val)
     return packet.tostring()
 
 
 ########  MAIN CLASS IMPLEMENTATION ########
 
-class ConfigParseError(StandardError):
+class ConfigParseError(Exception):
     def __init__(self, filename, lineno, msg):
         self.filename = filename
         self.lineno = lineno
@@ -293,21 +291,22 @@ class NscaSender(object):
         self._cached_crypters = {}
         self.random_generator = os.urandom
         if config_path is not None:
-            with open(config_path, 'r') as f:
+            with open(config_path, 'rb') as f:
                 self.parse_config(f, config_path=config_path)
 
     def parse_config(self, config_file_object, config_path=""):
         config_file_object.seek(0)
         for line_no, line in enumerate(config_file_object):
-            if '=' not in line or line.lstrip().startswith('#'):
+            if b'=' not in line or line.lstrip().startswith(b'#'):
                 continue
-            key, value = [res.strip() for res in line.split('=')]
+            key, value = [res.strip() for res in line.split(b'=')]
             try:
-                if key == 'password':
+                if key == b'password':
                     if len(value) > MAX_PASSWORD_LENGTH:
                         raise ConfigParseError(config_path, line_no, "Password too long; max %d" % MAX_PASSWORD_LENGTH)
-                    self.password = str(value)
-                elif key == 'encryption_method':
+                    assert isinstance(value, bytes), value
+                    self.password = value
+                elif key == b'encryption_method':
                     self.encryption_method_i = int(value)
                     if self.encryption_method_i not in crypters.keys():
                         raise ConfigParseError(
@@ -332,16 +331,16 @@ class NscaSender(object):
     def _check_alert(self, host=None, service=None, state=None, description=None):
         if state not in nagios.States.keys():
             raise ValueError("state %r should be one of {%s}" % (state, ','.join(map(str, nagios.States.keys()))))
-        if not isinstance(host, (bytes, str)):
+        if not isinstance(host, bytes):
             raise ValueError("host %r must be a non-unicode string" % (host))
         if len(host) > MAX_HOSTNAME_LENGTH:
             raise ValueError("host %r too long (max length %d)" % (host, MAX_HOSTNAME_LENGTH))
-        if not isinstance(description, (bytes, str)):
+        if not isinstance(description, bytes):
             raise ValueError("plugin output %r must be a non-unicode string" % (description))
         if len(description) > MAX_PLUGINOUTPUT_LENGTH:
             raise ValueError("plugin output %r too long (max length %d)" % (description, MAX_PLUGINOUTPUT_LENGTH))
         if service is not None:
-            if not isinstance(service, (bytes, str)):
+            if not isinstance(service, bytes):
                 raise ValueError("service %r must be a non-unicode string" % (service))
             if len(service) > MAX_DESCRIPTION_LENGTH:
                 raise ValueError("service %r too long (max length %d)" % (service, MAX_DESCRIPTION_LENGTH))
@@ -358,7 +357,7 @@ class NscaSender(object):
             conn.sendall(packet)
 
     def send_host(self, host, state, description):
-        return self.send_service(host, '', state, description)
+        return self.send_service(host, b'', state, description)
 
     def _sock_connect(self, host, port, timeout=None, connect_all=True):
         conns = []

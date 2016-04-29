@@ -25,7 +25,7 @@ def send_nsca(status, host_name, service_name, text_output, remote_host, **kwarg
         n = NscaSender(remote_host=remote_host, **kwargs)
         n.send_service(host_name, service_name, status, text_output)
         n.disconnect()
-    except Exception, e:
+    except Exception as e:
         log.error("Unable to send NSCA packet to %s for %s:%s (%s)", remote_host, host_name, service_name, str(e))
 
 

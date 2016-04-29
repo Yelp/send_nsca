@@ -63,7 +63,7 @@ class NSCATestCase(TestCase):
         with open(self.send_nsca_config_path, 'w') as f:
             f.write(SEND_NSCA_CFG_TEMPLATE % {'crypto_method': self.crypto_method})
         self.nsca_process = subprocess.Popen(["nsca", "-f", "-c", self.nsca_config_path])
-    	time.sleep(0.25)  # give nsca a moment to start up
+        time.sleep(0.25)  # give nsca a moment to start up
 
     def expect_checks(self, n_checks):
         # This is only complicated because we use the FIFO in non-blocking

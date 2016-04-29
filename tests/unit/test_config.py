@@ -1,5 +1,6 @@
-import cStringIO
+import io
 
+import six
 from unittest2 import TestCase
 
 import send_nsca
@@ -9,27 +10,27 @@ from .. import util
 
 class TestConfig(TestCase):
     def setUp(self):
-        self.sender = send_nsca.nsca.NscaSender("test_host", config_path=None)
+        self.sender = send_nsca.nsca.NscaSender(b"test_host", config_path=None)
 
     def test_ignores_comments(self):
-        stream = cStringIO.StringIO()
-        stream.write("""
+        stream = io.BytesIO()
+        stream.write(b"""
 password = 1234
 # password = 2345
         """)
         self.sender.parse_config(stream)
-        self.assertEqual(self.sender.password, "1234")
+        self.assertEqual(self.sender.password, b"1234")
 
     def test_password_limits(self):
-        stream = cStringIO.StringIO()
-        stream.write("password = ")
+        stream = io.BytesIO()
+        stream.write(b"password = ")
         stream.write(util.get_chrs(513))
-        stream.write("\n")
+        stream.write(b"\n")
         self.assertRaises(send_nsca.nsca.ConfigParseError, self.sender.parse_config, stream)
 
     def test_yells_at_random_keys(self):
-        stream = cStringIO.StringIO()
-        stream.write("foo = bar\n")
+        stream = io.BytesIO()
+        stream.write(b"foo = bar\n")
         self.assertRaises(send_nsca.nsca.ConfigParseError, self.sender.parse_config, stream)
 
     def test_get_encryption_method(self):
@@ -51,9 +52,11 @@ password = 1234
             16: True,
             255: False
         }
-        for crypter, success in crypters.iteritems():
-            stream = cStringIO.StringIO()
-            stream.write("encryption_method = %d\n" % crypter)
+        for crypter, success in crypters.items():
+            stream = io.BytesIO()
+            stream.write(
+                "encryption_method = {0}\n".format(crypter).encode('UTF-8'),
+            )
             if success:
                 self.sender.parse_config(stream)
                 self.assertEqual(self.sender.encryption_method_i, crypter)
