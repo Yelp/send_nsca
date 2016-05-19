@@ -365,10 +365,10 @@ class NscaSender(object):
                 host, port, socket.AF_UNSPEC, socket.SOCK_STREAM, 0, 0):
             try:
                 s = socket.socket(family, socktype, proto)
-                s.connect(sockaddr)
-                conns.append(s)
                 if timeout is not None:
                     s.settimeout(timeout)
+                s.connect(sockaddr)
+                conns.append(s)
                 if not connect_all:
                     break
             except socket.error:
