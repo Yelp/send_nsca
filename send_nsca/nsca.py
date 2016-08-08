@@ -198,13 +198,13 @@ class RC6Crypter(UnsupportedCrypter):
 class AES128Crypter(CryptoCrypter):
     crypt_id = 14
     CryptoCipher = Crypto.Cipher.AES
-    key_size = 16
+    key_size = 32
 
 
 class AES192Crypter(CryptoCrypter):
     crypt_id = 15
     CryptoCipher = Crypto.Cipher.AES
-    key_size = 24
+    key_size = 32
 
 
 class AES256Crypter(CryptoCrypter):
